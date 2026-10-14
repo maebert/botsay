@@ -18,12 +18,18 @@ pub struct Rng(u64);
 
 impl Rng {
     pub fn from_seed(seed: &str) -> Self {
+        Self::with_stream(seed, 0)
+    }
+
+    /// An independent sequence for the same seed. Shapes use stream 0 and
+    /// colors stream 1, so changing one never changes the other.
+    pub fn with_stream(seed: &str, stream: u64) -> Self {
         let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
         for byte in seed.bytes() {
             hash ^= u64::from(byte);
             hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
         }
-        Rng(hash)
+        Rng(hash ^ stream.wrapping_mul(0x9e37_79b9_7f4a_7c15))
     }
 
     fn next_u64(&mut self) -> u64 {

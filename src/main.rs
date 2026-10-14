@@ -3,6 +3,7 @@
 mod balloon;
 mod bot;
 mod cli;
+mod color;
 mod rng;
 
 use std::path::Path;

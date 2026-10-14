@@ -3,6 +3,7 @@ use std::process::ExitCode;
 
 use crate::balloon::{Mode, STYLES, Style};
 use crate::bot::Bot;
+use crate::color::{Color, ColorDepth, paint};
 
 const DEFAULT_WIDTH: usize = 40;
 
@@ -25,6 +26,9 @@ Options:
   -b, --balloon <STYLE>  {balloon} balloon style [default: {default}]
   -B, --balloons         List balloon styles
   -o, --bot-only         Draw only the bot, without a balloon
+  -c, --color <COLOR>    Bot color: a hue (0-360), a hex color (ff8800), or a
+                         name like blue [default: picked by the seed]
+  -n, --no-color         Don't color the bot (also: NO_COLOR=1)
   -W, --width <N>        Wrap the message at N columns [default: {DEFAULT_WIDTH}]
       --gallery <N>      Show the bots for seeds 0 to N-1
   -h, --help             Print help
@@ -37,6 +41,8 @@ struct Options {
     seed: Option<String>,
     style: &'static Style,
     bot_only: bool,
+    color: Option<Color>,
+    no_color: bool,
     width: usize,
     gallery: Option<u32>,
     message: Vec<String>,
@@ -54,6 +60,8 @@ fn parse_args(cmd: &str, mode: Mode, mut parser: lexopt::Parser) -> Result<Comma
         seed: None,
         style: &Style::DEFAULT,
         bot_only: false,
+        color: None,
+        no_color: false,
         width: DEFAULT_WIDTH,
         gallery: None,
         message: Vec::new(),
@@ -74,6 +82,8 @@ fn parse_args(cmd: &str, mode: Mode, mut parser: lexopt::Parser) -> Result<Comma
                     .ok_or_else(|| format!("unknown balloon style '{name}' (see -B)"))?;
             }
             Short('o') | Long("bot-only") => opts.bot_only = true,
+            Short('c') | Long("color") => opts.color = Some(parser.value()?.string()?.parse()?),
+            Short('n') | Long("no-color") => opts.no_color = true,
             Short('W') | Long("width") => {
                 let n = parser.value()?.string()?;
                 opts.width =
@@ -98,11 +108,34 @@ fn random_seed() -> String {
     (nanos ^ u64::from(std::process::id()).rotate_left(32)).to_string()
 }
 
-fn gallery(count: u32) -> String {
+/// Color is off with `--no-color` or `NO_COLOR`, and otherwise on when
+/// writing to a terminal or when `CLICOLOR_FORCE` is set. Terminals that
+/// announce 24-bit color through `COLORTERM` get it; the rest get the
+/// 256-color palette.
+fn color_depth(
+    no_color: bool,
+    is_terminal: bool,
+    env: impl Fn(&str) -> Option<String>,
+) -> Option<ColorDepth> {
+    let set = |name: &str| env(name).filter(|value| !value.is_empty());
+    if no_color || set("NO_COLOR").is_some() {
+        return None;
+    }
+    let forced = set("CLICOLOR_FORCE").is_some_and(|value| value != "0");
+    if !is_terminal && !forced {
+        return None;
+    }
+    match set("COLORTERM").as_deref() {
+        Some("truecolor" | "24bit") => Some(ColorDepth::TrueColor),
+        _ => Some(ColorDepth::Ansi256),
+    }
+}
+
+fn gallery(count: u32, depth: Option<ColorDepth>) -> String {
     let seeds: Vec<String> = (0..count).map(|seed| seed.to_string()).collect();
     let mut out = String::new();
     for seeds in seeds.chunks(9) {
-        let bots: Vec<Bot> = seeds.iter().map(|seed| Bot::new(seed)).collect();
+        let bots: Vec<Bot> = seeds.iter().map(|seed| Bot::new(seed, None)).collect();
         let widest_seed = seeds.iter().map(String::len).max().unwrap_or(0);
         let column = bots.iter().map(|bot| bot.width() + 4).max().unwrap_or(0).max(widest_seed + 2);
         let mut row = |cells: Vec<String>| {
@@ -115,7 +148,7 @@ fn gallery(count: u32) -> String {
                 .iter()
                 .map(|bot| {
                     let line = bot.lines.get(y).map_or("", String::as_str);
-                    format!("{line:<column$}")
+                    paint(&format!("{line:<column$}"), bot.color, depth)
                 })
                 .collect());
         }
@@ -138,15 +171,16 @@ fn read_message(cmd: &str, words: &[String]) -> Result<String, String> {
 }
 
 fn draw(cmd: &str, mode: Mode, opts: Options) -> Result<String, String> {
+    let depth = color_depth(opts.no_color, io::stdout().is_terminal(), |name| std::env::var(name).ok());
     if let Some(count) = opts.gallery {
-        return Ok(gallery(count));
+        return Ok(gallery(count, depth));
     }
 
     let seed = opts
         .seed
         .or_else(|| std::env::var("BOTSAY_SEED").ok().filter(|seed| !seed.is_empty()))
         .unwrap_or_else(random_seed);
-    let bot = Bot::new(&seed);
+    let bot = Bot::new(&seed, opts.color);
 
     let mut out = String::new();
     let indent = if opts.bot_only {
@@ -163,7 +197,7 @@ fn draw(cmd: &str, mode: Mode, opts: Options) -> Result<String, String> {
     };
     for line in &bot.lines {
         out.push_str(indent);
-        out.push_str(line);
+        out.push_str(&paint(line, bot.color, depth));
         out.push('\n');
     }
     Ok(out)
@@ -200,5 +234,32 @@ pub fn run(mode: Mode) -> ExitCode {
             eprintln!("{cmd}: {error}");
             ExitCode::from(2)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn color_depth() {
+        let depth = |no_color, is_terminal, env: &[(&str, &str)]| {
+            super::color_depth(no_color, is_terminal, |name| {
+                env.iter().find(|(key, _)| *key == name).map(|(_, value)| value.to_string())
+            })
+        };
+        let (ansi, truecolor) = (Some(ColorDepth::Ansi256), Some(ColorDepth::TrueColor));
+
+        assert_eq!(depth(false, true, &[]), ansi);
+        assert_eq!(depth(false, false, &[]), None);
+        assert_eq!(depth(true, true, &[]), None);
+        assert_eq!(depth(false, true, &[("NO_COLOR", "1")]), None);
+        assert_eq!(depth(false, true, &[("NO_COLOR", "")]), ansi);
+        assert_eq!(depth(false, false, &[("CLICOLOR_FORCE", "1")]), ansi);
+        assert_eq!(depth(false, false, &[("CLICOLOR_FORCE", "0")]), None);
+        assert_eq!(depth(true, false, &[("CLICOLOR_FORCE", "1")]), None);
+        assert_eq!(depth(false, true, &[("COLORTERM", "truecolor")]), truecolor);
+        assert_eq!(depth(false, true, &[("COLORTERM", "24bit")]), truecolor);
+        assert_eq!(depth(false, true, &[("COLORTERM", "yes")]), ansi);
     }
 }

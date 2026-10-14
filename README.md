@@ -16,7 +16,7 @@ $ botsay -s 7 "Hello! I'm a little robot."
 ```
 
 Every robot is generated from a seed, and the same seed always draws the same
-robot. There are tens of thousands of them:
+robot in the same color. There are tens of thousands of them:
 
 ```
 0           1           2           3           4           5           6           7           8
@@ -51,6 +51,7 @@ botsay -s manu hello          # the robot for seed "manu" says hello
 fortune | botsay              # read the message from stdin
 botthink "hmm..."             # a thought balloon instead
 botsay -o -s manu             # just the robot
+botsay -c blue hello          # a blue robot
 botsay --gallery 27           # browse the robots for seeds 0 to 26
 ```
 
@@ -60,6 +61,8 @@ botsay --gallery 27           # browse the robots for seeds 0 to 26
 | `-b`, `--balloon <STYLE>` | Balloon style (default: `round`)                             |
 | `-B`, `--balloons`      | List balloon styles                                            |
 | `-o`, `--bot-only`      | Draw only the robot, without a balloon                         |
+| `-c`, `--color <COLOR>` | Robot color: a hue (`0`–`360`), a hex color (`ff8800`), or a name. Defaults to the seed's color. |
+| `-n`, `--no-color`      | Don't color the robot                                          |
 | `-W`, `--width <N>`     | Wrap the message at N columns (default: 40)                    |
 | `--gallery <N>`         | Show the robots for seeds 0 to N-1                             |
 | `-h`, `--help`          | Print help                                                     |
@@ -72,6 +75,26 @@ Set `BOTSAY_SEED` in your shell profile to always get the same robot:
 ```sh
 export BOTSAY_SEED="$USER"
 ```
+
+### Colors
+
+The seed picks each robot's color: a hue anywhere on the color wheel, with a
+saturation and lightness that read well on dark and light backgrounds. Only
+the robot is colored, not the balloon.
+
+`-c` overrides it with:
+
+- a hue in degrees, like `-c 200`, which keeps the seed's saturation and lightness;
+- a name for a hue: `red`, `orange`, `yellow`, `lime`, `green`, `teal`, `cyan`,
+  `blue`, `indigo`, `purple`, `magenta` or `pink`;
+- an exact hex color, like `-c ff8800` or `-c '#f80'` (quote it, since `#`
+  starts a comment in most shells).
+
+Colors are only printed to a terminal, so `botsay hi > file.txt` stays plain.
+They use 24-bit color if the terminal sets `COLORTERM=truecolor`, and the
+256-color palette otherwise. botsay also follows the usual conventions:
+[`NO_COLOR`](https://no-color.org) turns colors off, and `CLICOLOR_FORCE=1`
+turns them on even when the output isn't a terminal.
 
 ### Balloon styles
 

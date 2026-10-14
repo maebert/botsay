@@ -10,7 +10,9 @@ const BOT_7: &str = " ▗▙▟▖\n █▐▌█\n▐▐██▌▌\n ▗▌�
 fn command(bin: &str, args: &[&str]) -> Command {
     let mut command = Command::new(bin);
     command.args(args);
-    command.env_remove("BOTSAY_SEED");
+    for var in ["BOTSAY_SEED", "NO_COLOR", "CLICOLOR_FORCE", "COLORTERM"] {
+        command.env_remove(var);
+    }
     command
 }
 
@@ -101,9 +103,34 @@ fn seed_comes_from_flag_or_environment() {
 }
 
 #[test]
+fn colors_only_the_bot() {
+    let colored = |args: &[&str], env: &[(&str, &str)]| {
+        let mut command = botsay(args);
+        command.envs(env.iter().copied());
+        stdout(command)
+    };
+    let forced = [("CLICOLOR_FORCE", "1")];
+
+    assert!(!colored(&["-s", "7", "hi"], &[]).contains('\x1b'), "colored a pipe");
+
+    let out = colored(&["-s", "7", "hi"], &forced);
+    let (balloon, bot) = out.split_at(out.find("     ╲\n").unwrap() + "     ╲\n".len());
+    assert!(!balloon.contains('\x1b'), "colored the balloon:\n{out}");
+    assert!(bot.lines().all(|line| line.starts_with("      \x1b[38;5;") && line.ends_with("\x1b[0m")));
+
+    let truecolor = [("CLICOLOR_FORCE", "1"), ("COLORTERM", "truecolor")];
+    let out = colored(&["-s", "7", "-o", "-c", "ff8800"], &truecolor);
+    assert_eq!(out.lines().next().unwrap(), "\x1b[38;2;255;136;0m ▗▙▟▖\x1b[0m");
+
+    assert_eq!(colored(&["-s", "7", "-o", "-n"], &forced), BOT_7);
+    assert_eq!(colored(&["-s", "7", "-o"], &[("CLICOLOR_FORCE", "1"), ("NO_COLOR", "1")]), BOT_7);
+}
+
+#[test]
 fn usage_errors_exit_with_2() {
     for (args, error) in [
         (&["-b", "nope", "hi"][..], "unknown balloon style 'nope' (see -B)"),
+        (&["-c", "nope", "hi"], "invalid color 'nope'"),
         (&["-W", "0", "hi"], "invalid width '0'"),
         (&["--seed"], "missing argument for option '--seed'"),
         (&["-x"], "invalid option '-x'"),

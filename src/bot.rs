@@ -13,6 +13,7 @@
 //! | 3    | 4–5  | mouth, arms, bottom of the head             |
 //! | 4    | 6–7  | legs, feet, wheels, treads… (optional)      |
 
+use crate::color::{Color, Hsl, Rgb};
 use crate::rng::Rng;
 
 /// Quadrant characters, indexed by `TL | TR << 1 | BL << 2 | BR << 3`.
@@ -23,11 +24,20 @@ const MAX_WIDTH: usize = 16;
 pub struct Bot {
     /// 3 or 4 lines, without trailing whitespace.
     pub lines: Vec<String>,
+    pub color: Rgb,
 }
 
 impl Bot {
-    pub fn new(seed: &str) -> Self {
-        Bot { lines: draw(seed).render() }
+    /// The bot for `seed`, in the seed's color unless `color` overrides it.
+    /// A hue override keeps the seed's saturation and lightness.
+    pub fn new(seed: &str, color: Option<Color>) -> Self {
+        let hsl = Hsl::from_seed(seed);
+        let color = match color {
+            None => hsl.to_rgb(),
+            Some(Color::Hue(hue)) => Hsl { hue, ..hsl }.to_rgb(),
+            Some(Color::Rgb(rgb)) => rgb,
+        };
+        Bot { lines: draw(seed).render(), color }
     }
 
     pub fn width(&self) -> usize {
