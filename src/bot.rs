@@ -21,8 +21,25 @@ const QUAD: [char; 16] = [' ', '▘', '▝', '▀', '▖', '▌', '▞', '▛', 
 const ROWS: usize = 8;
 const MAX_WIDTH: usize = 16;
 
+// ╭─────────────────────────────────────────╮
+// │ It looks like you're reading the source │
+// │ code. Would you like help?              │
+// ╰─────────────────────────────────────────╯
+//     ╲
+//      ╲
+//       ╭──╮
+//       │  │
+//       @  @
+//       ││ ││
+//       ││ ││
+//       │╰─╯│
+//       ╰───╯
+const CLIPPY: [&str; 7] = ["╭──╮", "│  │", "@  @", "││ ││", "││ ││", "│╰─╯│", "╰───╯"];
+/// Brushed steel.
+const CLIPPY_COLOR: Hsl = Hsl { hue: 210, saturation: 15, lightness: 70 };
+
 pub struct Bot {
-    /// 3 or 4 lines, without trailing whitespace.
+    /// 3 or 4 lines (Clippy gets 7), without trailing whitespace.
     pub lines: Vec<String>,
     pub color: Rgb,
 }
@@ -31,13 +48,17 @@ impl Bot {
     /// The bot for `seed`, in the seed's color unless `color` overrides it.
     /// A hue override keeps the seed's saturation and lightness.
     pub fn new(seed: &str, color: Option<Color>) -> Self {
-        let hsl = Hsl::from_seed(seed);
+        let (lines, hsl) = if seed.eq_ignore_ascii_case("clippy") {
+            (CLIPPY.map(String::from).to_vec(), CLIPPY_COLOR)
+        } else {
+            (draw(seed).render(), Hsl::from_seed(seed))
+        };
         let color = match color {
             None => hsl.to_rgb(),
             Some(Color::Hue(hue)) => Hsl { hue, ..hsl }.to_rgb(),
             Some(Color::Rgb(rgb)) => rgb,
         };
-        Bot { lines: draw(seed).render(), color }
+        Bot { lines, color }
     }
 
     pub fn width(&self) -> usize {

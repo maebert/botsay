@@ -142,3 +142,9 @@ fn usage_errors_exit_with_2() {
         assert!(out.stdout.is_empty());
     }
 }
+
+#[test]
+fn it_looks_like_youre_writing_a_test() {
+    let out = stdout(botsay(&["-s", "clippy", "-o"]));
+    assert_eq!(out, "╭──╮\n│  │\n@  @\n││ ││\n││ ││\n│╰─╯│\n╰───╯\n");
+}

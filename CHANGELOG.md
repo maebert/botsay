@@ -8,6 +8,10 @@ A change to the robot drawn for an existing seed is a breaking change.
 
 ## [Unreleased]
 
+### Added
+
+- A surprise for one particular seed.
+
 ## [0.2.0] - 2026-10-13
 
 ### Added
