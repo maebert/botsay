@@ -8,6 +8,11 @@ A change to the robot drawn for an existing seed is a breaking change.
 
 ## [Unreleased]
 
+### Changed
+
+- botsay exits with 1 when something goes wrong while it runs, like reading
+  stdin, and keeps 2 for wrong options.
+
 ### Fixed
 
 - Errors writing the output, like a full disk, are reported instead of

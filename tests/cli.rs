@@ -20,19 +20,19 @@ fn botsay(args: &[&str]) -> Command {
     command(env!("CARGO_BIN_EXE_botsay"), args)
 }
 
-fn run(mut command: Command, stdin: &str) -> Output {
+fn run(mut command: Command, stdin: &[u8]) -> Output {
     let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("failed to start botsay");
-    child.stdin.take().unwrap().write_all(stdin.as_bytes()).unwrap();
+    child.stdin.take().unwrap().write_all(stdin).unwrap();
     child.wait_with_output().unwrap()
 }
 
 fn stdout(command: Command) -> String {
-    let out = run(command, "");
+    let out = run(command, b"");
     assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
     String::from_utf8(out.stdout).unwrap()
 }
@@ -73,7 +73,7 @@ fn says_a_message() {
 
 #[test]
 fn reads_message_from_stdin() {
-    let out = run(botsay(&["-s", "7"]), "from a pipe\n");
+    let out = run(botsay(&["-s", "7"]), b"from a pipe\n");
     assert!(String::from_utf8(out.stdout).unwrap().contains("│ from a pipe │"));
 }
 
@@ -155,12 +155,19 @@ fn usage_errors_exit_with_2() {
         (&["--seed"], "missing argument for option '--seed'"),
         (&["-x"], "invalid option '-x'"),
     ] {
-        let out = run(botsay(args), "");
+        let out = run(botsay(args), b"");
         assert_eq!(out.status.code(), Some(2), "{args:?}");
         let stderr = String::from_utf8(out.stderr).unwrap();
         assert!(stderr.starts_with(&format!("botsay: {error}")), "{args:?}: {stderr}");
         assert!(out.stdout.is_empty());
     }
+}
+
+#[test]
+fn runtime_errors_exit_with_1() {
+    let out = run(botsay(&["-s", "7"]), b"not utf-8: \xff\n");
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8(out.stderr).unwrap().starts_with("botsay: reading stdin:"));
 }
 
 #[test]

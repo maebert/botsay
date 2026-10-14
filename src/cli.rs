@@ -33,6 +33,8 @@ Options:
       --gallery <N>      Show the bots for seeds 0 to N-1
   -h, --help             Print help
   -V, --version          Print version
+
+Exits with 1 if something goes wrong, and 2 if the options are wrong.
 "
     )
 }
@@ -51,6 +53,19 @@ struct Options {
 enum Command {
     Draw(Options),
     Print(String),
+}
+
+enum Error {
+    /// The command line was wrong. Exits with 2.
+    Usage(String),
+    /// Something went wrong while running. Exits with 1.
+    Failed(String),
+}
+
+impl From<lexopt::Error> for Error {
+    fn from(error: lexopt::Error) -> Self {
+        Error::Usage(error.to_string())
+    }
 }
 
 fn parse_args(cmd: &str, mode: Mode, mut parser: lexopt::Parser) -> Result<Command, lexopt::Error> {
@@ -157,20 +172,20 @@ fn gallery(count: u32, depth: Option<ColorDepth>) -> String {
     out
 }
 
-fn read_message(cmd: &str, words: &[String]) -> Result<String, String> {
+fn read_message(cmd: &str, words: &[String]) -> Result<String, Error> {
     if !words.is_empty() {
         return Ok(words.join(" "));
     }
     let mut stdin = io::stdin();
     if stdin.is_terminal() {
-        return Err(format!("no message given (try: {cmd} hello)"));
+        return Err(Error::Usage(format!("no message given (try: {cmd} hello)")));
     }
     let mut message = String::new();
-    stdin.read_to_string(&mut message).map_err(|e| format!("reading stdin: {e}"))?;
+    stdin.read_to_string(&mut message).map_err(|e| Error::Failed(format!("reading stdin: {e}")))?;
     Ok(message.trim_end().to_string())
 }
 
-fn draw(cmd: &str, mode: Mode, opts: Options) -> Result<String, String> {
+fn draw(cmd: &str, mode: Mode, opts: Options) -> Result<String, Error> {
     let depth = color_depth(opts.no_color, io::stdout().is_terminal(), |name| std::env::var(name).ok());
     if let Some(count) = opts.gallery {
         return Ok(gallery(count, depth));
@@ -208,13 +223,12 @@ pub fn run(mode: Mode) -> ExitCode {
         Mode::Say => "botsay",
         Mode::Think => "botthink",
     };
-    let output =
-        parse_args(cmd, mode, lexopt::Parser::from_env()).map_err(|e| e.to_string()).and_then(|command| {
-            match command {
-                Command::Print(text) => Ok(text),
-                Command::Draw(opts) => draw(cmd, mode, opts),
-            }
-        });
+    let output = parse_args(cmd, mode, lexopt::Parser::from_env()).map_err(Error::from).and_then(|command| {
+        match command {
+            Command::Print(text) => Ok(text),
+            Command::Draw(opts) => draw(cmd, mode, opts),
+        }
+    });
     match output {
         Ok(text) => {
             //  ______________________________________________________
@@ -235,9 +249,13 @@ pub fn run(mode: Mode) -> ExitCode {
                 _ => ExitCode::SUCCESS,
             }
         }
-        Err(error) => {
-            eprintln!("{cmd}: {error}");
+        Err(Error::Usage(message)) => {
+            eprintln!("{cmd}: {message}");
             ExitCode::from(2)
+        }
+        Err(Error::Failed(message)) => {
+            eprintln!("{cmd}: {message}");
+            ExitCode::FAILURE
         }
     }
 }
