@@ -1,0 +1,23 @@
+name: Homebrew
+
+# Installs botsay from maebert/homebrew-tap the way users do, and runs the
+# formula's tests. Runs after every release, and can be started by hand.
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  install:
+    name: brew install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    steps:
+      - uses: Homebrew/actions/setup-homebrew@main
+      - run: brew install maebert/tap/botsay
+      - run: brew test botsay
+      - run: botsay -s 7 "Installed with Homebrew!"
+      - run: brew audit --strict maebert/tap/botsay

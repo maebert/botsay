@@ -132,3 +132,8 @@ jobs:
               -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
               commit -m "botsay ${TAG#v}"
           git push
+
+  verify:
+    name: Verify Homebrew install
+    needs: publish
+    uses: ./.github/workflows/homebrew.yml
