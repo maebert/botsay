@@ -9,6 +9,8 @@ one exception so far is the easter egg in 0.2.1, which took over a single seed.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-14
+
 ### Changed
 
 - botsay exits with 1 when something goes wrong while it runs, like reading
@@ -45,7 +47,8 @@ one exception so far is the easter egg in 0.2.1, which took over a single seed.
 - Balloon styles `ascii`, `cowsay`, `linux-vt`, `round` (default) and `unicode`.
 - `--bot-only`, `--width` and `--gallery` options.
 
-[Unreleased]: https://github.com/maebert/botsay/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/maebert/botsay/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/maebert/botsay/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/maebert/botsay/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/maebert/botsay/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/maebert/botsay/releases/tag/v0.1.0
