@@ -28,14 +28,20 @@ robot. There are tens of thousands of them:
 
 ## Installation
 
-You need a [Rust toolchain](https://rustup.rs) (1.85 or newer).
+With [Homebrew](https://brew.sh) on macOS or Linux:
+
+```sh
+brew install maebert/tap/botsay
+```
+
+Or from source, with a [Rust toolchain](https://rustup.rs) (1.85 or newer):
 
 ```sh
 cargo install --git https://github.com/maebert/botsay
 ```
 
-This installs `botsay`. For thought balloons, link it as `botthink`:
-`ln -s ~/.cargo/bin/botsay ~/.cargo/bin/botthink`.
+Homebrew also installs `botthink`, which draws thought balloons. With Cargo,
+make it yourself: `ln -s ~/.cargo/bin/botsay ~/.cargo/bin/botthink`.
 
 ## Usage
 
@@ -110,6 +116,19 @@ cargo test                                   # UPDATE_SNAPSHOTS=1 to accept chan
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
+
+### Releasing
+
+1. Bump `version` in `Cargo.toml` and move the changelog entries under a new
+   heading for that version.
+2. Commit, then tag and push: `git tag v0.2.0 && git push origin v0.2.0`.
+
+The [release workflow](.github/workflows/release.yml) checks that the tag
+matches `Cargo.toml`, builds binaries for macOS and Linux, publishes a GitHub
+Release, and updates the formula in
+[maebert/homebrew-tap](https://github.com/maebert/homebrew-tap).
+
+### Seeds
 
 `tests/gallery.txt` pins the robot for every seed in the gallery. If you change
 the generator on purpose, rerun the tests with `UPDATE_SNAPSHOTS=1` and note in

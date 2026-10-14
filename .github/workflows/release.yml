@@ -1,0 +1,134 @@
+name: Release
+
+# Push a tag like `v0.2.0` (matching the version in Cargo.toml) to build
+# binaries, publish a GitHub Release, and update the Homebrew formula in
+# maebert/homebrew-tap.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  GH_TOKEN: ${{ github.token }}
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  release:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check that the tag matches Cargo.toml
+        run: |
+          version=$(grep -m1 '^version' Cargo.toml | cut -d '"' -f2)
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match version $version in Cargo.toml"
+            exit 1
+          fi
+      - name: Create draft release with notes from CHANGELOG.md
+        run: |
+          awk -v v="${TAG#v}" '/^## \[/ { p = index($0, "[" v "]") > 0; next } p' CHANGELOG.md > notes.md
+          gh release create "$TAG" --draft --title "$TAG" --notes-file notes.md
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - { target: aarch64-apple-darwin, os: macos-latest }
+          - { target: x86_64-apple-darwin, os: macos-latest }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Package and upload
+        run: |
+          name="botsay-$TAG-${{ matrix.target }}"
+          mkdir "$name"
+          cp target/${{ matrix.target }}/release/botsay README.md LICENSE-MIT LICENSE-APACHE "$name/"
+          tar czf "$name.tar.gz" "$name"
+          shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
+          gh release upload "$TAG" "$name.tar.gz" "$name.tar.gz.sha256"
+
+  publish:
+    name: Publish release and update Homebrew tap
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        run: gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false
+      - name: Write formula
+        run: |
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*.sha256'
+          sha() { cut -d ' ' -f 1 "botsay-$TAG-$1.tar.gz.sha256"; }
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/botsay-$TAG"
+          cat > botsay.rb <<EOF
+          class Botsay < Formula
+            desc "Like cowsay, but with cute little block-character robots"
+            homepage "https://github.com/$GITHUB_REPOSITORY"
+            license any_of: ["MIT", "Apache-2.0"]
+
+            on_macos do
+              on_arm do
+                url "$url-aarch64-apple-darwin.tar.gz"
+                sha256 "$(sha aarch64-apple-darwin)"
+              end
+              on_intel do
+                url "$url-x86_64-apple-darwin.tar.gz"
+                sha256 "$(sha x86_64-apple-darwin)"
+              end
+            end
+
+            on_linux do
+              on_arm do
+                url "$url-aarch64-unknown-linux-musl.tar.gz"
+                sha256 "$(sha aarch64-unknown-linux-musl)"
+              end
+              on_intel do
+                url "$url-x86_64-unknown-linux-musl.tar.gz"
+                sha256 "$(sha x86_64-unknown-linux-musl)"
+              end
+            end
+
+            def install
+              bin.install "botsay"
+              bin.install_symlink bin/"botsay" => "botthink"
+            end
+
+            test do
+              assert_match "│ hello │", shell_output("#{bin}/botsay -s 7 hello")
+              assert_match "○", shell_output("#{bin}/botthink -s 7 hmm")
+            end
+          end
+          EOF
+          cat botsay.rb
+      - name: Push formula to maebert/homebrew-tap
+        env:
+          DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/tap_key
+          chmod 600 ~/.ssh/tap_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap_key -o IdentitiesOnly=yes"
+          git clone git@github.com:maebert/homebrew-tap.git tap
+          cp botsay.rb tap/Formula/botsay.rb
+          cd tap
+          git rm -q --ignore-unmatch Formula/.gitkeep
+          git add Formula/botsay.rb
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "botsay ${TAG#v}"
+          git push
