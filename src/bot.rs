@@ -129,6 +129,47 @@ impl Canvas {
     }
 }
 
+#[derive(Clone, Copy)]
+enum Antenna {
+    Center,
+    Pair,
+    Ears,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Eyes {
+    Dot,
+    Wide,
+    Tall,
+    Cyclops,
+}
+
+#[derive(Clone, Copy)]
+enum Mouth {
+    Slot,
+    Wide,
+    Grill,
+    Smile,
+}
+
+#[derive(Clone, Copy)]
+enum Arms {
+    Stub,
+    Down,
+    Up,
+    Bolt,
+}
+
+#[derive(Clone, Copy)]
+enum Base {
+    Legs,
+    Feet,
+    Wheels,
+    Treads,
+    Hover,
+    Pedestal,
+}
+
 // ╭───────────────────────────────────────────╮
 // │ The order of rng calls is part of the     │
 // │ output. Reorder or add a choice and every │
@@ -144,7 +185,7 @@ fn draw(seed: &str) -> Canvas {
     let mut rng = Rng::from_seed(seed);
 
     let hw = rng.pick(&[3, 4, 4, 5]); // head half-width in pixels
-    let arms = rng.pick(&["none", "none", "stub", "down", "up", "bolt"]);
+    let arms = rng.pick(&[None, None, Some(Arms::Stub), Some(Arms::Down), Some(Arms::Up), Some(Arms::Bolt)]);
     let mut c = Canvas::new(hw);
 
     // Head.
@@ -160,96 +201,110 @@ fn draw(seed: &str) -> Canvas {
 
     // Line 1: antennas.
     if top == 1 {
-        match rng.pick(&["none", "center", "pair", "ears", "pair"]) {
-            "center" => c.set(0, 0, true),
-            "pair" => {
+        let antenna =
+            [None, Some(Antenna::Center), Some(Antenna::Pair), Some(Antenna::Ears), Some(Antenna::Pair)];
+        match rng.pick(&antenna) {
+            Some(Antenna::Center) => c.set(0, 0, true),
+            Some(Antenna::Pair) => {
                 let d = rng.range(1, hw - 2);
                 c.set(d, 0, true);
             }
-            "ears" => c.set(hw - 1, 0, true),
-            _ => {}
+            Some(Antenna::Ears) => c.set(hw - 1, 0, true),
+            None => {}
         }
     }
 
     // Line 2: eyes. Every bot has eyes: two, or one centered cyclops eye.
     // Each eye is a hole surrounded by head pixels: never in the outer column,
     // and never directly above the mouth.
-    let mut eye = rng.pick(&["dot", "dot", "dot", "wide", "tall", "cyclops"]);
-    if eye == "wide" && hw < 4 {
-        eye = "dot";
+    let mut eyes = rng.pick(&[Eyes::Dot, Eyes::Dot, Eyes::Dot, Eyes::Wide, Eyes::Tall, Eyes::Cyclops]);
+    if eyes == Eyes::Wide && hw < 4 {
+        eyes = Eyes::Dot;
     }
-    let ex = if eye == "wide" { rng.range(1, hw - 3) } else { rng.range(1, hw - 2) };
+    let ex = if eyes == Eyes::Wide { rng.range(1, hw - 3) } else { rng.range(1, hw - 2) };
     let ey = rng.pick(&[2, 3]);
-    match eye {
-        "dot" => c.set(ex, ey, false),
-        "wide" => c.hline(ey, ex, ex + 1, false),
-        "tall" => c.vline(ex, 2, 3, false),
-        "cyclops" => c.set(0, ey, false),
-        _ => {}
+    match eyes {
+        Eyes::Dot => c.set(ex, ey, false),
+        Eyes::Wide => c.hline(ey, ex, ex + 1, false),
+        Eyes::Tall => c.vline(ex, 2, 3, false),
+        Eyes::Cyclops => c.set(0, ey, false),
     }
-    let eyes_low = eye == "tall" || ey == 3;
+    let eyes_low = eyes == Eyes::Tall || ey == 3;
 
     // Line 3: mouth, unless the eyes sit right above it.
-    let mouth = if eyes_low { "none" } else { rng.pick(&["none", "slot", "wide", "grill", "smile"]) };
+    let mouth = if eyes_low {
+        None
+    } else {
+        rng.pick(&[None, Some(Mouth::Slot), Some(Mouth::Wide), Some(Mouth::Grill), Some(Mouth::Smile)])
+    };
     match mouth {
-        "slot" => c.set(0, 4, false),
-        "wide" => {
+        Some(Mouth::Slot) => c.set(0, 4, false),
+        Some(Mouth::Wide) => {
             let w = rng.range(1, hw - 2);
             c.hline(4, 0, w, false);
         }
-        "grill" => {
+        Some(Mouth::Grill) => {
             for d in (0..hw - 1).step_by(2) {
                 c.set(d, 4, false);
             }
         }
-        "smile" => c.hline(4, 0, hw - 3, false),
-        _ => {}
+        Some(Mouth::Smile) => c.hline(4, 0, hw - 3, false),
+        None => {}
     }
 
     // Lines 2–3: arms.
     let a = hw; // first column outside the head
     match arms {
-        "stub" => c.vline(a, 3, 4, true),
-        "down" => {
+        Some(Arms::Stub) => c.vline(a, 3, 4, true),
+        Some(Arms::Down) => {
             c.set(a, 3, true);
             c.vline(a + 1, 3, 5, true);
         }
-        "up" => {
+        Some(Arms::Up) => {
             c.set(a, 4, true);
             c.vline(a + 1, 1, 4, true);
         }
-        "bolt" => {
+        Some(Arms::Bolt) => {
             c.vline(a, 2, 3, true);
             c.vline(a + 1, 4, 5, true);
         }
-        _ => {}
+        None => {}
     }
 
     // Line 4: base (optional).
-    let base = rng.pick(&["none", "legs", "legs", "feet", "wheels", "treads", "hover", "pedestal"]);
+    let base = rng.pick(&[
+        None,
+        Some(Base::Legs),
+        Some(Base::Legs),
+        Some(Base::Feet),
+        Some(Base::Wheels),
+        Some(Base::Treads),
+        Some(Base::Hover),
+        Some(Base::Pedestal),
+    ]);
     let lx = rng.range(1, hw - 2);
     match base {
-        "legs" => c.vline(lx, 6, 7, true),
-        "feet" => {
+        Some(Base::Legs) => c.vline(lx, 6, 7, true),
+        Some(Base::Feet) => {
             c.vline(lx, 6, 7, true);
             c.set(lx + 1, 7, true);
         }
-        "wheels" => {
+        Some(Base::Wheels) => {
             c.hline(6, lx, lx + 1, true);
             c.set(lx, 7, true);
         }
-        "treads" => {
+        Some(Base::Treads) => {
             c.hline(6, 0, hw - 1, true);
             for d in (1..hw).step_by(2) {
                 c.set(d, 7, true);
             }
         }
-        "hover" => c.set(lx, 6, true),
-        "pedestal" => {
+        Some(Base::Hover) => c.set(lx, 6, true),
+        Some(Base::Pedestal) => {
             c.hline(6, 0, (hw - 3).max(0), true);
             c.hline(7, 0, hw - 1, true);
         }
-        _ => {}
+        None => {}
     }
 
     c
