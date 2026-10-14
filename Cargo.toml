@@ -9,7 +9,7 @@ readme = "README.md"
 repository = "https://github.com/maebert/botsay"
 keywords = ["cowsay", "robot", "ascii-art", "terminal", "fun"]
 categories = ["command-line-utilities"]
-exclude = ["/.github", "/design"]
+exclude = ["/.github"]
 
 [dependencies]
 lexopt = "0.3.2"

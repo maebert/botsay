@@ -16,7 +16,7 @@ $ botsay -s 7 "Hello! I'm a little robot."
 ```
 
 Every robot is generated from a seed, and the same seed always draws the same
-robot in the same color. There are tens of thousands of them:
+robot in the same color. Here are the first nine:
 
 ```
 0           1           2           3           4           5           6           7           8
@@ -79,8 +79,9 @@ export BOTSAY_SEED="$USER"
 ### Colors
 
 The seed picks each robot's color: a hue anywhere on the color wheel, with a
-saturation and lightness that read well on dark and light backgrounds. Only
-the robot is colored, not the balloon.
+saturation and lightness picked for dark terminals. On a light background some
+of the paler robots are hard to see; `-c` or `-n` helps there. Only the robot
+is colored, not the balloon.
 
 `-c` overrides it with:
 
@@ -120,8 +121,8 @@ cargo fmt --check
 
 ### Releasing
 
-1. Bump `version` in `Cargo.toml` and move the changelog entries under a new
-   heading for that version.
+1. Bump `version` in `Cargo.toml`, move the changelog entries under a new
+   heading for that version, and add its link at the bottom of the changelog.
 2. Commit, then tag and push: `git tag v0.2.0 && git push origin v0.2.0`.
 
 The [release workflow](.github/workflows/release.yml) runs the tests, checks

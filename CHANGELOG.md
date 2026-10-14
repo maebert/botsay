@@ -4,7 +4,8 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-A change to the robot drawn for an existing seed is a breaking change.
+Changing the robot that an existing seed draws counts as a breaking change. The
+one exception so far is the easter egg in 0.2.1, which took over a single seed.
 
 ## [Unreleased]
 
@@ -43,3 +44,8 @@ A change to the robot drawn for an existing seed is a breaking change.
 - `--seed` option and `BOTSAY_SEED` environment variable.
 - Balloon styles `ascii`, `cowsay`, `linux-vt`, `round` (default) and `unicode`.
 - `--bot-only`, `--width` and `--gallery` options.
+
+[Unreleased]: https://github.com/maebert/botsay/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/maebert/botsay/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/maebert/botsay/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/maebert/botsay/releases/tag/v0.1.0
