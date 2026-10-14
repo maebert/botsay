@@ -8,6 +8,15 @@ A change to the robot drawn for an existing seed is a breaking change.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-13
+
+### Added
+
+- Robots are colored. The seed picks the color; robot shapes are unchanged.
+- `-c`/`--color` sets the color as a hue, a hue name or a hex color.
+- `-n`/`--no-color` turns colors off. botsay also respects `NO_COLOR` and
+  `CLICOLOR_FORCE`, and uses 24-bit color when `COLORTERM` announces it.
+
 ## [0.1.0] - 2026-10-13
 
 ### Added
