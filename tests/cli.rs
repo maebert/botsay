@@ -81,7 +81,10 @@ fn reads_message_from_stdin() {
 fn thinks_when_called_botthink() {
     let botthink =
         Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("botthink{}", env::consts::EXE_SUFFIX));
-    fs::copy(env!("CARGO_BIN_EXE_botsay"), &botthink).unwrap();
+    // A hard link rather than a copy: running a freshly written executable can
+    // fail with "Text file busy" on Linux while other tests spawn processes.
+    let _ = fs::remove_file(&botthink);
+    fs::hard_link(env!("CARGO_BIN_EXE_botsay"), &botthink).unwrap();
     let botthink = botthink.to_str().unwrap();
 
     let expected = format!("╭─────╮\n│ hmm │\n╰─────╯\n    ○\n     ○\n{}", indented(BOT_7));
