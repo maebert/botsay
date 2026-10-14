@@ -227,8 +227,13 @@ pub fn run(mode: Mode) -> ExitCode {
             //       ▝██▘
             //       ▗▌▐▖
             let mut stdout = io::stdout().lock();
-            let _ = stdout.write_all(text.as_bytes()).and_then(|()| stdout.flush());
-            ExitCode::SUCCESS
+            match stdout.write_all(text.as_bytes()).and_then(|()| stdout.flush()) {
+                Err(error) if error.kind() != io::ErrorKind::BrokenPipe => {
+                    eprintln!("{cmd}: {error}");
+                    ExitCode::FAILURE
+                }
+                _ => ExitCode::SUCCESS,
+            }
         }
         Err(error) => {
             eprintln!("{cmd}: {error}");

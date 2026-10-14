@@ -8,6 +8,11 @@ A change to the robot drawn for an existing seed is a breaking change.
 
 ## [Unreleased]
 
+### Fixed
+
+- Errors writing the output, like a full disk, are reported instead of
+  ignored. A closed pipe (`botsay hi | head -1`) still isn't an error.
+
 ## [0.2.1] - 2026-10-13
 
 ### Added

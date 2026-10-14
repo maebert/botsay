@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 use std::{env, fs};
@@ -124,6 +124,26 @@ fn colors_only_the_bot() {
 
     assert_eq!(colored(&["-s", "7", "-o", "-n"], &forced), BOT_7);
     assert_eq!(colored(&["-s", "7", "-o"], &[("CLICOLOR_FORCE", "1"), ("NO_COLOR", "1")]), BOT_7);
+}
+
+#[test]
+fn stops_quietly_when_the_reader_does() {
+    let mut child =
+        botsay(&["--gallery", "10000"]).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+    let mut first_bytes = [0; 16];
+    child.stdout.take().unwrap().read_exact(&mut first_bytes).unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stderr), "");
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn reports_a_full_disk() {
+    let full = fs::OpenOptions::new().write(true).open("/dev/full").unwrap();
+    let out = botsay(&["hi"]).stdout(full).stderr(Stdio::piped()).output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).starts_with("botsay: No space left on device"));
 }
 
 #[test]
