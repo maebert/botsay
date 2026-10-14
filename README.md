@@ -87,28 +87,6 @@ ascii         cowsay        linux-vt       round           unicode
 
 `botthink` uses `o` or `○` for the trail, and `( )` sides for the cowsay style.
 
-## How the robots are made
-
-A robot is drawn on a pixel grid at most 16 pixels wide and 8 tall. It is
-printed with Unicode quadrant block characters (`▘▝▀▖▌▞▛▗▚▐▜▄▙▟█`), each of
-which covers 2×2 pixels. Only the left half is drawn and every pixel is
-mirrored, so robots are always symmetric.
-
-The seed is hashed into a small random number generator (FNV-1a and SplitMix64),
-which then picks the parts one line at a time:
-
-1. **Head and antennas:** head width, square or rounded corners, a tall head,
-   or a short one with a center antenna, a pair of antennas, or ears.
-2. **Eyes and arms:** dots, wide eyes, tall eyes or a cyclops eye, plus
-   stubby, lowered, raised or bent arms.
-3. **Mouth:** a slot, a wide mouth, a grill or a smile, unless the eyes sit too
-   low to leave room for one.
-4. **Base (optional):** legs, feet, wheels, treads, a hover jet or a pedestal.
-
-The generator does not depend on any external crate, so a seed draws the same
-robot on every platform. That is a promise within a major version: if a
-release changes what a seed draws, it gets a new major version.
-
 ## Development
 
 ```sh
@@ -127,12 +105,6 @@ The [release workflow](.github/workflows/release.yml) checks that the tag
 matches `Cargo.toml`, builds binaries for macOS and Linux, publishes a GitHub
 Release, and updates the formula in
 [maebert/homebrew-tap](https://github.com/maebert/homebrew-tap).
-
-### Seeds
-
-`tests/gallery.txt` pins the robot for every seed in the gallery. If you change
-the generator on purpose, rerun the tests with `UPDATE_SNAPSHOTS=1` and note in
-the changelog that seeds draw different robots.
 
 ## Known limitations
 
