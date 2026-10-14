@@ -124,10 +124,11 @@ cargo fmt --check
    heading for that version.
 2. Commit, then tag and push: `git tag v0.2.0 && git push origin v0.2.0`.
 
-The [release workflow](.github/workflows/release.yml) checks that the tag
-matches `Cargo.toml`, builds binaries for macOS and Linux, publishes a GitHub
-Release, and updates the formula in
-[maebert/homebrew-tap](https://github.com/maebert/homebrew-tap).
+The [release workflow](.github/workflows/release.yml) runs the tests, checks
+that the tag matches `Cargo.toml`, builds binaries for macOS and Linux,
+publishes a GitHub Release, and updates the formula in
+[maebert/homebrew-tap](https://github.com/maebert/homebrew-tap) from
+[`.github/formula.rb.in`](.github/formula.rb.in).
 
 ## Known limitations
 

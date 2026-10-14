@@ -7,6 +7,9 @@ on:
   workflow_dispatch:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   install:
     name: brew install (${{ matrix.os }})
@@ -16,8 +19,9 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest]
     steps:
-      - uses: Homebrew/actions/setup-homebrew@main
+      - uses: Homebrew/actions/setup-homebrew@f9676f1ffe2e1a720f81b2c54c51cfb99915ec14 # main
       - run: brew install maebert/tap/botsay
       - run: brew test botsay
       - run: botsay -s 7 "Installed with Homebrew!"
+      - run: botthink -s 7 "Installed with Homebrew!"
       - run: brew audit --strict maebert/tap/botsay

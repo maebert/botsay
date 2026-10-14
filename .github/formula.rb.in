@@ -1,0 +1,37 @@
+class Botsay < Formula
+  desc "Like cowsay, but with cute little block-character robots"
+  homepage "https://github.com/@REPOSITORY@"
+  license any_of: ["MIT", "Apache-2.0"]
+
+  on_macos do
+    on_arm do
+      url "@URL@-aarch64-apple-darwin.tar.gz"
+      sha256 "@SHA256_aarch64-apple-darwin@"
+    end
+    on_intel do
+      url "@URL@-x86_64-apple-darwin.tar.gz"
+      sha256 "@SHA256_x86_64-apple-darwin@"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "@URL@-aarch64-unknown-linux-musl.tar.gz"
+      sha256 "@SHA256_aarch64-unknown-linux-musl@"
+    end
+    on_intel do
+      url "@URL@-x86_64-unknown-linux-musl.tar.gz"
+      sha256 "@SHA256_x86_64-unknown-linux-musl@"
+    end
+  end
+
+  def install
+    bin.install "botsay"
+    bin.install_symlink bin/"botsay" => "botthink"
+  end
+
+  test do
+    assert_match "│ hello │", shell_output("#{bin}/botsay -s 7 hello")
+    assert_match "○", shell_output("#{bin}/botthink -s 7 hmm")
+  end
+end

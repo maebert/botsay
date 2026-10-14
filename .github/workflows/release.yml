@@ -1,7 +1,7 @@
 name: Release
 
-# Push a tag like `v0.2.0` (matching the version in Cargo.toml) to build
-# binaries, publish a GitHub Release, and update the Homebrew formula in
+# Push a tag like `v0.3.0` (matching the version in Cargo.toml) to test and
+# build botsay, publish a GitHub Release, and update the Homebrew formula in
 # maebert/homebrew-tap.
 
 on:
@@ -9,35 +9,46 @@ on:
     tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
   GH_TOKEN: ${{ github.token }}
   TAG: ${{ github.ref_name }}
+  TARGETS: aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-musl x86_64-unknown-linux-musl
 
 jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
   release:
     name: Create draft release
+    needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Check that the tag matches Cargo.toml
         run: |
-          version=$(grep -m1 '^version' Cargo.toml | cut -d '"' -f2)
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
           if [ "v$version" != "$TAG" ]; then
             echo "::error::Tag $TAG does not match version $version in Cargo.toml"
             exit 1
           fi
       - name: Create draft release with notes from CHANGELOG.md
         run: |
-          awk -v v="${TAG#v}" '/^## \[/ { p = index($0, "[" v "]") > 0; next } p' CHANGELOG.md > notes.md
-          gh release create "$TAG" --draft --title "$TAG" --notes-file notes.md
+          awk -v v="${TAG#v}" '/^## \[/ { p = index($0, "[" v "]") > 0; next } /^\[.*\]: / { next } p' CHANGELOG.md > notes.md
+          gh release create "$TAG" --draft --verify-tag --title "$TAG" --notes-file notes.md
 
   build:
     name: Build ${{ matrix.target }}
     needs: release
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -46,9 +57,12 @@ jobs:
           - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm }
           - { target: x86_64-unknown-linux-musl, os: ubuntu-latest }
     steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master
+        with:
+          toolchain: stable
           targets: ${{ matrix.target }}
       - if: contains(matrix.target, 'musl')
         run: sudo apt-get update && sudo apt-get install -y musl-tools
@@ -66,53 +80,27 @@ jobs:
     name: Publish release and update Homebrew tap
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Publish release
-        run: gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false
+        run: gh release edit "$TAG" --draft=false
       - name: Write formula
         run: |
-          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*.sha256'
-          sha() { cut -d ' ' -f 1 "botsay-$TAG-$1.tar.gz.sha256"; }
-          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/botsay-$TAG"
-          cat > botsay.rb <<EOF
-          class Botsay < Formula
-            desc "Like cowsay, but with cute little block-character robots"
-            homepage "https://github.com/$GITHUB_REPOSITORY"
-            license any_of: ["MIT", "Apache-2.0"]
-
-            on_macos do
-              on_arm do
-                url "$url-aarch64-apple-darwin.tar.gz"
-                sha256 "$(sha aarch64-apple-darwin)"
-              end
-              on_intel do
-                url "$url-x86_64-apple-darwin.tar.gz"
-                sha256 "$(sha x86_64-apple-darwin)"
-              end
-            end
-
-            on_linux do
-              on_arm do
-                url "$url-aarch64-unknown-linux-musl.tar.gz"
-                sha256 "$(sha aarch64-unknown-linux-musl)"
-              end
-              on_intel do
-                url "$url-x86_64-unknown-linux-musl.tar.gz"
-                sha256 "$(sha x86_64-unknown-linux-musl)"
-              end
-            end
-
-            def install
-              bin.install "botsay"
-              bin.install_symlink bin/"botsay" => "botthink"
-            end
-
-            test do
-              assert_match "│ hello │", shell_output("#{bin}/botsay -s 7 hello")
-              assert_match "○", shell_output("#{bin}/botthink -s 7 hmm")
-            end
-          end
-          EOF
+          gh release download "$TAG" -p '*.sha256'
+          args=(-e "s|@REPOSITORY@|$GITHUB_REPOSITORY|g"
+                -e "s|@URL@|https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/botsay-$TAG|g")
+          for target in $TARGETS; do
+            args+=(-e "s|@SHA256_$target@|$(cut -d ' ' -f 1 "botsay-$TAG-$target.tar.gz.sha256")|")
+          done
+          sed "${args[@]}" .github/formula.rb.in > botsay.rb
+          if grep -n '@[A-Za-z0-9_-]*@' botsay.rb; then
+            echo "::error::Unfilled placeholders in the formula"
+            exit 1
+          fi
           cat botsay.rb
       - name: Push formula to maebert/homebrew-tap
         env:
@@ -126,12 +114,24 @@ jobs:
           git clone git@github.com:maebert/homebrew-tap.git tap
           cp botsay.rb tap/Formula/botsay.rb
           cd tap
-          git rm -q --ignore-unmatch Formula/.gitkeep
           git add Formula/botsay.rb
           git -c user.name="github-actions[bot]" \
               -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
               commit -m "botsay ${TAG#v}"
           git push
+
+  cleanup:
+    name: Delete the draft release
+    needs: [release, build, publish]
+    if: failure() && needs.release.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: |
+          if [ "$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" = true ]; then
+            gh release delete "$TAG" -R "$GITHUB_REPOSITORY" --yes
+          fi
 
   verify:
     name: Verify Homebrew install
